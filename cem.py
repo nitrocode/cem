@@ -1,9 +1,10 @@
-#!/usr/bin/env python
 import urllib
+#!/usr/bin/env python3
 import sys
 import json
 import os
 import requests
+from urllib.request import urlretrieve
 
 
 CRX_DIR = 'extensions'
@@ -29,7 +30,7 @@ def download(uid, file_path):
     url += '?response=redirect&prodversion=49.0&x=id%3D'
     url += '{}%26installsource%3Dondemand%26uc'
     crx_url = url.format(uid)
-    urllib.urlretrieve(crx_url, file_path)
+    urlretrieve(crx_url, file_path)
     return os.path.exists(file_path)
 
 
@@ -58,7 +59,7 @@ def search(text):
     url = url.format(text)
     data = 'login=&'
     res = requests.post(url, headers=headers, data=data)
-    crx_json = json.loads(res.content[4:].replace('\n', ''))[0][1][1]
+    crx_json = json.loads(res.text[4:].replace('\n', ''))[0][1][1]
     extensions = [{'crx': val[0], 'name': val[1], 'desc': val[6]}
                   for val in crx_json]
     return {
