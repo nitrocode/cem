@@ -1,9 +1,11 @@
-#!/usr/bin/env python
-import urllib
+#!/usr/bin/env python3
 import sys
 import json
 import os
 import requests
+import random
+from urllib.parse import quote
+from urllib.request import urlretrieve
 
 
 CRX_DIR = 'extensions'
@@ -29,7 +31,7 @@ def download(uid, file_path):
     url += '?response=redirect&prodversion=49.0&x=id%3D'
     url += '{}%26installsource%3Dondemand%26uc'
     crx_url = url.format(uid)
-    urllib.urlretrieve(crx_url, file_path)
+    urlretrieve(crx_url, file_path)
     return os.path.exists(file_path)
 
 
@@ -47,18 +49,22 @@ def search(text):
         'referer': 'https//chrome.google.com/',
         'content-type': 'application/x-www-form-urlencoded;charset=UTF-8',
         'authority': 'chrome.google.com',
+        'user-agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, '
+                      'like Gecko) Ubuntu Chromium/69.0.3497.81 Chrome/69.0.3497.8'
+                      '1 Safari/537.36',
     }
 
-    url = 'https://chrome.google.com/webstore/ajax/item'
-    url += '?hl=en&gl=US&pv=20170811&mce=atf%2Cpii%2Crtr%2Crlb%2Cgtc%2Chcn'
-    url += '%2Csvp%2Cwtd%2Cnrp%2Chap%2Cnma%2Cc3d%2Cncr%2Cctm%2Cac%2Chot%2Cmac'
-    url += '%2Cfcf%2Crma%2Cirt%2Cscm%2Cqso%2Chrb%2Crer%2Crae%2Cshr%2Cesl%2Cdda'
-    url += '%2Cpot%2Cevt&count=112&searchTerm={}'
-    url += '&sortBy=0&container=CHROME&_reqid=1962197&rt=j'
-    url = url.format(text)
+    lastUpdate = '20180301'
+    # taken from urllib.parse.unquote(url)
+    mce = 'atf,pii,rtr,rlb,gtc,hcn,svp,wtd,nrp,hap,nma,nsp,c3d,ncr,ctm,ac,' + \
+          'hot,mac,fcf,rma,irt,scm,qso,hrb,rae,shr,uid,dda,pot,evt'
+    url = 'https://chrome.google.com/webstore/ajax/item?hl=en-US&gl=US&pv={}' + \
+          '&mce={}&count=112&searchTerm={}&sort' + \
+          'By=0&container=CHROME&_reqid={}&rt=j'
+    url = url.format(lastUpdate, quote(mce), text, random.randint(200000, 800000))
     data = 'login=&'
     res = requests.post(url, headers=headers, data=data)
-    crx_json = json.loads(res.content[4:].replace('\n', ''))[0][1][1]
+    crx_json = json.loads(res.text[4:].replace('\n', ''))[0][1][1]
     extensions = [{'crx': val[0], 'name': val[1], 'desc': val[6]}
                   for val in crx_json]
     return {
