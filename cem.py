@@ -6,13 +6,14 @@ import requests
 import random
 from urllib.parse import quote
 from urllib.request import urlretrieve
+import webbrowser
 
 
 CRX_DIR = 'extensions'
 CEM_FILE = 'Cemfile'
 
 
-def get_crx_path(uid, directory):
+def get_crx_path(uid: str, directory: str) -> str:
     """Return the local crx path for an extension
 
     :param uid: crx unique identifier
@@ -21,21 +22,52 @@ def get_crx_path(uid, directory):
     return os.path.join(directory, '{}.crx'.format(uid))
 
 
-def download(uid, file_path):
+def open_window(uid: str) -> bool:
+    """Open browser window to install extensions
+
+    Workaround until installing extensions automatically works.
+
+    :param uid: crx unique ifentifier
+    :return: true if browser window is opened
+    """
+    url = 'https://chrome.google.com/webstore/detail/{}'
+    chrome_path = '/usr/bin/chromium-browser --profile-directory="Default 1"'
+    webbrowser.get(chrome_path).open(url.format(uid))
+    return True
+
+
+def download(uid: str, file_path: str) -> bool:
     """Download the crx using the crx uid
 
     :param uid: crx unique identifier
     :return: true if the file is downloaded
     """
     url = 'https://clients2.google.com/service/update2/crx'
-    url += '?response=redirect&prodversion=49.0&x=id%3D'
-    url += '{}%26installsource%3Dondemand%26uc'
+    url += '?response=redirect&prodversion=49.0&x='
+    url += 'id={}'
+    #url += '%26installsource%3Dondemand%26uc'
+    url += quote('&installsource=ondemand&uc')
     crx_url = url.format(uid)
     urlretrieve(crx_url, file_path)
     return os.path.exists(file_path)
 
 
-def search(text):
+def deobfuscate_output(text: str) -> dict:
+    """Deobfuscate extension output.
+
+    Oddity needed to read google's obfuscation of their json into array:
+    1. Skips the first 4 chars
+    2. Removes new lines which returns json
+    3. Gets the first array value
+    4. Within that array value, get its second value
+    5. Within that array value, get its second value
+
+    :param text: returned from google's end point
+    :return: correct json dictionary
+    """
+    return json.loads(text[4:].replace('\n', ''))[0][1][1]
+
+def search(text: str) -> dict:
     """Search for extensions
 
     :param text: search term
@@ -64,9 +96,13 @@ def search(text):
     url = url.format(lastUpdate, quote(mce), text, random.randint(200000, 800000))
     data = 'login=&'
     res = requests.post(url, headers=headers, data=data)
-    crx_json = json.loads(res.text[4:].replace('\n', ''))[0][1][1]
-    extensions = [{'crx': val[0], 'name': val[1], 'desc': val[6]}
-                  for val in crx_json]
+    crx_json = deobfuscate_output(res.text)
+    # convert back to human readable form
+    extensions = [{
+      'crx': val[0],
+      'name': val[1],
+      'desc': val[6]
+    } for val in crx_json]
     return {
         'count': len(extensions),
         'extensions': extensions
@@ -101,11 +137,16 @@ def main():
     # search for each term and download the first extension
     for term in terms:
         content = search(term)
-        first = content['extensions'][0]
+        try:
+            first = content['extensions'][0]
+        except:
+            print('Could not find {}'.format(term))
+            continue
         file_path = get_crx_path(first['crx'], CRX_DIR)
         print('{} downloaded to {}'.format(first['name'], file_path))
         if not os.path.exists(file_path):
-            download(first['crx'], file_path)
+            #download(first['crx'], file_path)
+            open_window(first['crx'])
         else:
             print('... already exists')
 
