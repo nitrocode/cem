@@ -5,8 +5,10 @@ name = "pypi"
 
 [packages]
 requests = "==2.18.4"
+click = "*"
 
 [dev-packages]
+twine = "*"
 
 [requires]
 python_version = "3.6"
